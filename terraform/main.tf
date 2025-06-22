@@ -1,6 +1,6 @@
 module "lambda_function_code_bucket" {
   source      = "./modules/s3"
-  bucket_name = "translatefunctioncodebucket"
+  bucket_name = "translatefunctioncodebucketmadmax"
   objects = [
     {
       key    = "lambda.zip"
@@ -23,7 +23,7 @@ module "lambda_function_code_bucket" {
 # Input bucket
 module "source_bucket" {
   source        = "./modules/s3"
-  bucket_name   = "sourcetranslatebucket"
+  bucket_name   = "sourcetranslatebucketmadmax"
   objects       = []
   bucket_policy = ""
   cors = [
@@ -41,7 +41,7 @@ module "source_bucket" {
 # Output bucket
 module "dest_bucket" {
   source        = "./modules/s3"
-  bucket_name   = "desttranslatebucket"
+  bucket_name   = "desttranslatebucketmadmax"
   objects       = []
   bucket_policy = ""
   cors = [
@@ -107,4 +107,66 @@ module "lambda_function" {
   runtime       = "python3.12"
   s3_bucket     = module.lambda_function_code_bucket.bucket
   s3_key        = "lambda.zip"
+}
+
+# API Gateway configuration
+resource "aws_api_gateway_rest_api" "translate_api" {
+  name = "translate-api"
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+}
+
+resource "aws_api_gateway_resource" "resource_api" {
+  rest_api_id = aws_api_gateway_rest_api.translate_api.id
+  parent_id   = aws_api_gateway_rest_api.translate_api.root_resource_id
+  path_part   = "api"
+}
+
+resource "aws_api_gateway_method" "translate_method" {
+  rest_api_id      = aws_api_gateway_rest_api.translate_api.id
+  resource_id      = aws_api_gateway_resource.resource_api.id
+  api_key_required = false
+  http_method      = "POST"
+  authorization    = "NONE"
+}
+
+resource "aws_api_gateway_integration" "translate_function_method_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.translate_api.id
+  resource_id             = aws_api_gateway_resource.resource_api.id
+  http_method             = aws_api_gateway_method.translate_method.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = module.lambda_function.arn
+}
+
+resource "aws_api_gateway_method_response" "translate_function_method_response_200" {
+  rest_api_id = aws_api_gateway_rest_api.translate_api.id
+  resource_id = aws_api_gateway_resource.resource_api.id
+  http_method = aws_api_gateway_method.translate_method.http_method
+  status_code = "200"
+}
+
+resource "aws_api_gateway_integration_response" "translate_function_integration_response_200" {
+  rest_api_id = aws_api_gateway_rest_api.translate_api.id
+  resource_id = aws_api_gateway_resource.resource_api.id
+  http_method = aws_api_gateway_method.translate_method.http_method
+  status_code = aws_api_gateway_method_response.translate_function_method_response_200.status_code
+  depends_on = [
+    aws_api_gateway_integration.translate_function_method_integration
+  ]
+}
+
+resource "aws_api_gateway_deployment" "api_deployment" {
+  rest_api_id = aws_api_gateway_rest_api.translate_api.id
+  lifecycle {
+    create_before_destroy = true
+  }
+  depends_on = [aws_api_gateway_integration.translate_function_method_integration]
+}
+
+resource "aws_api_gateway_stage" "api_stage" {
+  deployment_id = aws_api_gateway_deployment.api_deployment.id
+  rest_api_id   = aws_api_gateway_rest_api.translate_api.id
+  stage_name    = "prod"
 }
