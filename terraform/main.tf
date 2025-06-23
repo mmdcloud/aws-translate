@@ -137,7 +137,7 @@ resource "aws_api_gateway_integration" "translate_function_method_integration" {
   http_method             = aws_api_gateway_method.translate_method.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = module.lambda_function.arn
+  uri                     = module.lambda_function.invoke_arn
 }
 
 resource "aws_api_gateway_method_response" "translate_function_method_response_200" {
