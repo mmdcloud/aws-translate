@@ -59,10 +59,10 @@ module "dest_bucket" {
 # IAM role for Lambda function
 module "lambda_iam_role" {
   source             = "./modules/iam"
-  role_name          = "lambda_function_iam_role_"
-  role_description   = "lambda_function_iam_role_"
-  policy_name        = "lambda_function_iam_policy_"
-  policy_description = "lambda_function_iam_policy_"
+  role_name          = "lambda_function_iam_role"
+  role_description   = "lambda_function_iam_role"
+  policy_name        = "lambda_function_iam_policy"
+  policy_description = "lambda_function_iam_policy"
   assume_role_policy = <<EOF
     {
         "Version": "2012-10-17",
